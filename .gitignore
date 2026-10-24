@@ -1,0 +1,15 @@
+# Compiled binaries
+/bin/
+*.exe
+*.test
+*.out
+
+# Editor files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+
+# Local environment
+.env
