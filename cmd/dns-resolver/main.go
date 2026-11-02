@@ -3,9 +3,9 @@ package main
 import (
 	"crypto/rand"
 	"encoding/binary"
-	"encoding/hex"
 	"fmt"
 	"log"
+	"net"
 
 	"github.com/davidafshepherd/dns-resolver/internal/dns"
 )
@@ -30,9 +30,23 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// Print the DNS response as hexadecimal.
-	fmt.Printf("Transaction ID: %d\n", id)
-	fmt.Printf("Response length: %d bytes\n", len(response))
-	fmt.Printf("DNS response (hex):\n%s\n", hex.EncodeToString(response))
-	fmt.Println("Success: response transaction ID matches!")
+	// Display the DNS response details.
+	fmt.Printf("Transaction ID: %d\n", response.Header.ID)
+	fmt.Printf("Domain: %s\n", response.Question.Name)
+	fmt.Printf("Answers: %d\n", len(response.Answers))
+	fmt.Printf("Authorities: %d\n", len(response.Authorities))
+	fmt.Printf("Additionals: %d\n\n", len(response.Additionals))
+
+	// Display the IPv4 addresses from the A records.
+	for _, answer := range response.Answers {
+		if answer.Type == dns.QTypeA && answer.Class == dns.QClassIN && answer.RDLength == 4 {
+			ip := net.IP(answer.RData)
+
+			fmt.Printf("Name:  %s\n", answer.Name)
+			fmt.Printf("Type:  %d\n", answer.Type)
+			fmt.Printf("Class: %d\n", answer.Class)
+			fmt.Printf("TTL: %d seconds\n", answer.TTL)
+			fmt.Printf("IP: %s\n\n", ip.String())
+		}
+	}
 }
