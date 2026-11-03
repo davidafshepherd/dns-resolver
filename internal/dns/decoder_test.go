@@ -8,10 +8,10 @@ import (
 )
 
 func TestParseMessage(t *testing.T) {
-	// A valid DNS response packet with two answers.
+	// A valid DNS response containing two A records.
 	data, _ := hex.DecodeString("00168080000100020000000003646e7306676f6f676c6503636f6d0000010001c00c0001000100000214000408080808c00c0001000100000214000408080404")
 
-	// A valid DNS response packet with one answer, one authority and one additional record.
+	// A valid DNS response with one answer record, one authority record and one additional record.
 	mixedSections := append([]byte(nil), data[:32]...)
 	mixedSections[6] = 0
 	mixedSections[7] = 1
@@ -23,7 +23,7 @@ func TestParseMessage(t *testing.T) {
 	mixedSections = append(mixedSections, data[32:48]...)
 	mixedSections = append(mixedSections, data[48:64]...)
 
-	// An invalid DNS response packet with an unsupported question count.
+	// An invalid DNS response with an unsupported question count.
 	invalidCount := append([]byte(nil), data...)
 	invalidCount[4] = 0
 	invalidCount[5] = 2
