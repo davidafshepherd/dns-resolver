@@ -8,45 +8,51 @@ import (
 )
 
 func TestParseMessage(t *testing.T) {
-	// A valid DNS response containing two A records.
-	data, _ := hex.DecodeString("00168080000100020000000003646e7306676f6f676c6503636f6d0000010001c00c0001000100000214000408080808c00c0001000100000214000408080404")
+	// A valid DNS response with two answer records.
+	const responseHex = "001680800001000200000000" +
+		"03646e7306676f6f676c6503636f6d0000010001" +
+		"c00c0001000100000214000408080808" +
+		"c00c0001000100000214000408080404"
+	response, _ := hex.DecodeString(responseHex)
 
 	// A valid DNS response with one answer record, one authority record and one additional record.
-	mixedSections := append([]byte(nil), data[:32]...)
-	mixedSections[6] = 0
-	mixedSections[7] = 1
-	mixedSections[8] = 0
-	mixedSections[9] = 1
-	mixedSections[10] = 0
-	mixedSections[11] = 1
-	mixedSections = append(mixedSections, data[32:48]...)
-	mixedSections = append(mixedSections, data[32:48]...)
-	mixedSections = append(mixedSections, data[48:64]...)
+	const multipleRecordsHex = "001680800001000100010001" +
+		"03646e7306676f6f676c6503636f6d0000010001" +
+		"c00c0001000100000214000408080808" +
+		"c00c0001000100000214000408080808" +
+		"c00c0001000100000214000408080404"
+	multipleRecords, _ := hex.DecodeString(multipleRecordsHex)
 
 	// An invalid DNS response with an unsupported question count.
-	invalidCount := append([]byte(nil), data...)
-	invalidCount[4] = 0
-	invalidCount[5] = 2
+	const invalidCountHex = "001680800002000200000000" +
+		"03646e7306676f6f676c6503636f6d0000010001" +
+		"c00c0001000100000214000408080808" +
+		"c00c0001000100000214000408080404"
+	invalidCount, _ := hex.DecodeString(invalidCountHex)
 
+	// Construct the tests.
 	tests := []struct {
 		name                string
 		data                []byte
 		expectedAnswers     int
 		expectedAuthorities int
 		expectedAdditionals int
+		expectedIPs         []string
 		wantErr             bool
 	}{
 		{
 			name:            "valid response",
-			data:            data,
+			data:            response,
 			expectedAnswers: 2,
+			expectedIPs:     []string{"8.8.8.8", "8.8.4.4"},
 		},
 		{
 			name:                "all resource record sections",
-			data:                mixedSections,
+			data:                multipleRecords,
 			expectedAnswers:     1,
 			expectedAuthorities: 1,
 			expectedAdditionals: 1,
+			expectedIPs:         []string{"8.8.8.8"},
 		},
 		{
 			name:    "invalid question count",
@@ -55,11 +61,12 @@ func TestParseMessage(t *testing.T) {
 		},
 		{
 			name:    "truncated response",
-			data:    data[:len(data)-1],
+			data:    response[:len(response)-1],
 			wantErr: true,
 		},
 	}
 
+	// Run the tests.
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			message, err := ParseMessage(test.data)
@@ -103,47 +110,35 @@ func TestParseMessage(t *testing.T) {
 				t.Errorf("expected %d additionals, got %d additionals", test.expectedAdditionals, len(message.Additionals))
 			}
 
-			if test.name == "valid response" {
-				expectedIPs := map[string]bool{"8.8.8.8": false, "8.8.4.4": false}
-
-				for _, answer := range message.Answers {
-					if answer.Name != "dns.google.com" {
-						t.Errorf("Name: expected \"dns.google.com\", got %s", answer.Name)
-						continue
-					}
-
-					if answer.Type != QTypeA {
-						t.Errorf("Type: expected %d, got %d", QTypeA, answer.Type)
-						continue
-					}
-
-					if answer.Class != QClassIN {
-						t.Errorf("Class: expected %d, got %d", QClassIN, answer.Class)
-						continue
-					}
-
-					if answer.TTL == 0 {
-						t.Errorf("TTL: expected 0, got %d", answer.TTL)
-						continue
-					}
-
-					if answer.RDLength != 4 {
-						t.Errorf("RDLength: expected 4, got %d", answer.RDLength)
-						continue
-					}
-
-					ip := net.IP(answer.RData).String()
-					if _, exists := expectedIPs[ip]; !exists {
-						t.Errorf("unexpected IP: %s", ip)
-					} else {
-						expectedIPs[ip] = true
-					}
+			for i, answer := range message.Answers {
+				if answer.Name != "dns.google.com" {
+					t.Errorf("Name: expected \"dns.google.com\", got %s", answer.Name)
+					continue
 				}
 
-				for ip, found := range expectedIPs {
-					if !found {
-						t.Errorf("missing expected IP: %s", ip)
-					}
+				if answer.Type != QTypeA {
+					t.Errorf("Type: expected %d, got %d", QTypeA, answer.Type)
+					continue
+				}
+
+				if answer.Class != QClassIN {
+					t.Errorf("Class: expected %d, got %d", QClassIN, answer.Class)
+					continue
+				}
+
+				if answer.TTL == 0 {
+					t.Errorf("TTL: expected 0, got %d", answer.TTL)
+					continue
+				}
+
+				if answer.RDLength != 4 {
+					t.Errorf("RDLength: expected 4, got %d", answer.RDLength)
+					continue
+				}
+
+				ip := net.IP(answer.RData).String()
+				if ip != test.expectedIPs[i] {
+					t.Errorf("IP: expected %s, got %s", test.expectedIPs[i], ip)
 				}
 			}
 		})
@@ -151,8 +146,14 @@ func TestParseMessage(t *testing.T) {
 }
 
 func TestParseHeader(t *testing.T) {
-	data, _ := hex.DecodeString("00168080000100020000000003646e7306676f6f676c6503636f6d0000010001c00c0001000100000214000408080808c00c0001000100000214000408080404")
+	// A valid DNS response with two answer records.
+	const responseHex = "001680800001000200000000" +
+		"03646e7306676f6f676c6503636f6d0000010001" +
+		"c00c0001000100000214000408080808" +
+		"c00c0001000100000214000408080404"
+	response, _ := hex.DecodeString(responseHex)
 
+	// Construct the tests.
 	tests := []struct {
 		name    string
 		data    []byte
@@ -160,7 +161,7 @@ func TestParseHeader(t *testing.T) {
 	}{
 		{
 			name: "valid response",
-			data: data,
+			data: response,
 		},
 		{
 			name:    "truncated header",
@@ -174,6 +175,7 @@ func TestParseHeader(t *testing.T) {
 		},
 	}
 
+	// Run the tests.
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			header, err := ParseHeader(test.data)
@@ -217,8 +219,14 @@ func TestParseHeader(t *testing.T) {
 }
 
 func TestParseQuestion(t *testing.T) {
-	data, _ := hex.DecodeString("00168080000100020000000003646e7306676f6f676c6503636f6d0000010001c00c0001000100000214000408080808c00c0001000100000214000408080404")
+	// A valid DNS response with two answer records.
+	const responseHex = "001680800001000200000000" +
+		"03646e7306676f6f676c6503636f6d0000010001" +
+		"c00c0001000100000214000408080808" +
+		"c00c0001000100000214000408080404"
+	response, _ := hex.DecodeString(responseHex)
 
+	// Construct the tests.
 	tests := []struct {
 		name    string
 		data    []byte
@@ -227,17 +235,18 @@ func TestParseQuestion(t *testing.T) {
 	}{
 		{
 			name:   "valid question",
-			data:   data,
+			data:   response,
 			offset: 12,
 		},
 		{
 			name:    "truncated question",
-			data:    data[:30],
+			data:    response[:30],
 			offset:  12,
 			wantErr: true,
 		},
 	}
 
+	// Run the tests.
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			question, offset, err := ParseQuestion(test.data, test.offset)
@@ -273,8 +282,14 @@ func TestParseQuestion(t *testing.T) {
 }
 
 func TestParseResourceRecord(t *testing.T) {
-	data, _ := hex.DecodeString("00168080000100020000000003646e7306676f6f676c6503636f6d0000010001c00c0001000100000214000408080808c00c0001000100000214000408080404")
+	// A valid DNS response with two answer records.
+	const responseHex = "001680800001000200000000" +
+		"03646e7306676f6f676c6503636f6d0000010001" +
+		"c00c0001000100000214000408080808" +
+		"c00c0001000100000214000408080404"
+	response, _ := hex.DecodeString(responseHex)
 
+	// Construct the tests.
 	tests := []struct {
 		name           string
 		data           []byte
@@ -286,7 +301,7 @@ func TestParseResourceRecord(t *testing.T) {
 	}{
 		{
 			name:           "first A record",
-			data:           data,
+			data:           response,
 			offset:         32,
 			expectedTTL:    532,
 			expectedRData:  []byte{8, 8, 8, 8},
@@ -294,7 +309,7 @@ func TestParseResourceRecord(t *testing.T) {
 		},
 		{
 			name:           "second A record",
-			data:           data,
+			data:           response,
 			offset:         48,
 			expectedTTL:    532,
 			expectedRData:  []byte{8, 8, 4, 4},
@@ -302,18 +317,19 @@ func TestParseResourceRecord(t *testing.T) {
 		},
 		{
 			name:    "truncated record header",
-			data:    data[:40],
+			data:    response[:40],
 			offset:  32,
 			wantErr: true,
 		},
 		{
 			name:    "truncated RDATA",
-			data:    data[:47],
+			data:    response[:47],
 			offset:  32,
 			wantErr: true,
 		},
 	}
 
+	// Run the tests.
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			record, offset, err := ParseResourceRecord(test.data, test.offset)
@@ -361,8 +377,14 @@ func TestParseResourceRecord(t *testing.T) {
 }
 
 func TestDecodeDomainName(t *testing.T) {
-	data, _ := hex.DecodeString("00168080000100020000000003646e7306676f6f676c6503636f6d0000010001c00c0001000100000214000408080808c00c0001000100000214000408080404")
+	// A valid DNS response with two answer records.
+	const responseHex = "001680800001000200000000" +
+		"03646e7306676f6f676c6503636f6d0000010001" +
+		"c00c0001000100000214000408080808" +
+		"c00c0001000100000214000408080404"
+	response, _ := hex.DecodeString(responseHex)
 
+	// Construct the tests.
 	tests := []struct {
 		name           string
 		data           []byte
@@ -373,14 +395,14 @@ func TestDecodeDomainName(t *testing.T) {
 	}{
 		{
 			name:           "uncompressed name",
-			data:           data,
+			data:           response,
 			offset:         12,
 			expectedDomain: "dns.google.com",
 			expectedOffset: 28,
 		},
 		{
 			name:           "compressed name",
-			data:           data,
+			data:           response,
 			offset:         32,
 			expectedDomain: "dns.google.com",
 			expectedOffset: 34,
@@ -424,6 +446,7 @@ func TestDecodeDomainName(t *testing.T) {
 		},
 	}
 
+	// Run the tests.
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			domain, offset, err := DecodeDomainName(test.data, test.offset)

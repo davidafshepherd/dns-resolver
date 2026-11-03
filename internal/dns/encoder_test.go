@@ -7,6 +7,7 @@ import (
 )
 
 func TestMessageToBytes(t *testing.T) {
+	// Construct the tests.
 	tests := []struct {
 		name     string
 		message  Message
@@ -47,6 +48,7 @@ func TestMessageToBytes(t *testing.T) {
 		},
 	}
 
+	// Run the tests.
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			result, err := test.message.ToBytes()
@@ -82,6 +84,7 @@ func TestHeaderToBytes(t *testing.T) {
 }
 
 func TestQuestionToBytes(t *testing.T) {
+	// Construct the tests.
 	tests := []struct {
 		name     string
 		question Question
@@ -100,6 +103,7 @@ func TestQuestionToBytes(t *testing.T) {
 		},
 	}
 
+	// Run the tests.
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			result, err := test.question.ToBytes()
@@ -124,6 +128,7 @@ func TestQuestionToBytes(t *testing.T) {
 }
 
 func TestEncodeDomainName(t *testing.T) {
+	// Construct the tests.
 	tests := []struct {
 		name     string
 		domain   string
@@ -170,6 +175,7 @@ func TestEncodeDomainName(t *testing.T) {
 		},
 	}
 
+	// Run the tests.
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			result, err := EncodeDomainName(test.domain)

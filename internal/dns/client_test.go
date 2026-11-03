@@ -9,13 +9,17 @@ import (
 
 func TestQuery(t *testing.T) {
 	// A valid DNS response containing two A records.
-	const responseHex = "00168080000100020000000003646e7306676f6f676c6503636f6d0000010001c00c0001000100000214000408080808c00c0001000100000214000408080404"
+	const responseHex = "001680800001000200000000" +
+		"03646e7306676f6f676c6503636f6d0000010001" +
+		"c00c0001000100000214000408080808" +
+		"c00c0001000100000214000408080404"
 
+	// Construct the tests.
 	tests := []struct {
 		name            string
 		modify          func([]byte) []byte
-		wantErr         bool
 		expectedAnswers int
+		wantErr         bool
 	}{
 		{name: "valid response", expectedAnswers: 2},
 		{
@@ -43,6 +47,7 @@ func TestQuery(t *testing.T) {
 		},
 	}
 
+	// Run the tests.
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			// Start a local UDP server on an available port.
@@ -52,9 +57,10 @@ func TestQuery(t *testing.T) {
 			}
 			defer server.Close()
 
-			// Simulate a DNS server responding to a DNS query.
+			// Create a channel to receive errors from the UDP server.
 			serverErr := make(chan error, 1)
 
+			// Simulate a DNS server responding to a DNS query.
 			go func() {
 				buffer := make([]byte, 512)
 
@@ -87,31 +93,33 @@ func TestQuery(t *testing.T) {
 			// Send the DNS query to the mock DNS server.
 			response, err := Query(server.LocalAddr().String(), query)
 
+			// Ensure the mock DNS server completed successfully.
+			if err := <-serverErr; err != nil {
+				t.Errorf("mock DNS server: %v", err)
+			}
+
+			// Validate that the DNS response matches the expected outcome.
 			if test.wantErr {
 				if err == nil {
 					t.Fatal("expected an error")
 				}
-			} else {
-				if err != nil {
-					t.Fatalf("unexpected error: %v", err)
-				}
-
-				if response.Header.ID != query.Header.ID {
-					t.Errorf("expected %d, got %d", query.Header.ID, response.Header.ID)
-				}
-
-				if response.Question.Name != query.Question.Name {
-					t.Errorf("expected %s, got %s", query.Question.Name, response.Question.Name)
-				}
-
-				if len(response.Answers) != test.expectedAnswers {
-					t.Errorf("expected %d answers, got %d answers", test.expectedAnswers, len(response.Answers))
-				}
+				return
 			}
 
-			// Ensure the mock DNS server completed successfully.
-			if err := <-serverErr; err != nil {
-				t.Errorf("mock DNS server: %v", err)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if response.Header.ID != query.Header.ID {
+				t.Errorf("expected %d, got %d", query.Header.ID, response.Header.ID)
+			}
+
+			if response.Question.Name != query.Question.Name {
+				t.Errorf("expected %s, got %s", query.Question.Name, response.Question.Name)
+			}
+
+			if len(response.Answers) != test.expectedAnswers {
+				t.Errorf("expected %d answers, got %d answers", test.expectedAnswers, len(response.Answers))
 			}
 		})
 	}
