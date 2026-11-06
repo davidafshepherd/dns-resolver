@@ -296,11 +296,42 @@ func TestParseResourceRecord(t *testing.T) {
 		"c00c0001000100000214000408080404"
 	response, _ := hex.DecodeString(responseHex)
 
+	// A valid DNS response with an uncompressed NS record.
+	const nsResponseHex = "001680800001000100000000" +
+		"076578616d706c6503636f6d0000020001" +
+		"c00c00020001000002140011" +
+		"036e7331076578616d706c6503636f6d00"
+	nsResponse, _ := hex.DecodeString(nsResponseHex)
+
+	// A valid DNS response with a compressed NS record.
+	const compressedNSResponseHex = "001680800001000100000000" +
+		"076578616d706c6503636f6d0000020001" +
+		"c00c00020001000002140006" +
+		"036e7331c00c"
+	compressedNSResponse, _ := hex.DecodeString(compressedNSResponseHex)
+
+	// A valid DNS response with a compressed CNAME record.
+	const cnameResponseHex = "001680800001000100000000" +
+		"076578616d706c6503636f6d0000050001" +
+		"c00c00050001000002140006" +
+		"03777777c00c"
+	compressedCnameResponse, _ := hex.DecodeString(cnameResponseHex)
+
+	// An invalid DNS response with an NS RDATA length that exceeds the encoded name.
+	const invalidNSResponseHex = "001680800001000100000000" +
+		"076578616d706c6503636f6d0000020001" +
+		"c00c00020001000002140007" +
+		"036e7331c00c00"
+	invalidNSResponse, _ := hex.DecodeString(invalidNSResponseHex)
+
 	// Construct the tests.
 	tests := []struct {
 		name           string
 		data           []byte
 		offset         int
+		expectedName   string
+		expectedType   uint16
+		expectedClass  uint16
 		expectedTTL    uint32
 		expectedRData  []byte
 		expectedOffset int
@@ -309,7 +340,10 @@ func TestParseResourceRecord(t *testing.T) {
 		{
 			name:           "first A record",
 			data:           response,
+			expectedName:   "dns.google.com",
 			offset:         32,
+			expectedType:   QTypeA,
+			expectedClass:  QClassIN,
 			expectedTTL:    532,
 			expectedRData:  []byte{8, 8, 8, 8},
 			expectedOffset: 48,
@@ -318,6 +352,9 @@ func TestParseResourceRecord(t *testing.T) {
 			name:           "second A record",
 			data:           response,
 			offset:         48,
+			expectedName:   "dns.google.com",
+			expectedType:   QTypeA,
+			expectedClass:  QClassIN,
 			expectedTTL:    532,
 			expectedRData:  []byte{8, 8, 4, 4},
 			expectedOffset: 64,
@@ -332,6 +369,45 @@ func TestParseResourceRecord(t *testing.T) {
 			name:    "truncated RDATA",
 			data:    response[:47],
 			offset:  32,
+			wantErr: true,
+		},
+		{
+			name:           "uncompressed NS record",
+			data:           nsResponse,
+			offset:         29,
+			expectedName:   "example.com",
+			expectedType:   QTypeNS,
+			expectedClass:  QClassIN,
+			expectedTTL:    532,
+			expectedRData:  []byte{3, 'n', 's', '1', 7, 'e', 'x', 'a', 'm', 'p', 'l', 'e', 3, 'c', 'o', 'm', 0},
+			expectedOffset: 58,
+		},
+		{
+			name:           "compressed NS record",
+			data:           compressedNSResponse,
+			offset:         29,
+			expectedName:   "example.com",
+			expectedType:   QTypeNS,
+			expectedClass:  QClassIN,
+			expectedTTL:    532,
+			expectedRData:  []byte{3, 'n', 's', '1', 7, 'e', 'x', 'a', 'm', 'p', 'l', 'e', 3, 'c', 'o', 'm', 0},
+			expectedOffset: 47,
+		},
+		{
+			name:           "compressed CNAME record",
+			data:           compressedCnameResponse,
+			offset:         29,
+			expectedName:   "example.com",
+			expectedType:   QTypeCNAME,
+			expectedClass:  QClassIN,
+			expectedTTL:    532,
+			expectedRData:  []byte{3, 'w', 'w', 'w', 7, 'e', 'x', 'a', 'm', 'p', 'l', 'e', 3, 'c', 'o', 'm', 0},
+			expectedOffset: 47,
+		},
+		{
+			name:    "invalid NS record length",
+			data:    invalidNSResponse,
+			offset:  29,
 			wantErr: true,
 		},
 	}
@@ -352,16 +428,16 @@ func TestParseResourceRecord(t *testing.T) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 
-			if record.Name != "dns.google.com" {
-				t.Errorf("Name: expected \"dns.google.com\", got %s", record.Name)
+			if record.Name != test.expectedName {
+				t.Errorf("Name: expected %s, got %s", test.expectedName, record.Name)
 			}
 
-			if record.Type != QTypeA {
-				t.Errorf("Type: expected %d, got %d", QTypeA, record.Type)
+			if record.Type != test.expectedType {
+				t.Errorf("Type: expected %d, got %d", test.expectedType, record.Type)
 			}
 
-			if record.Class != QClassIN {
-				t.Errorf("Class: expected %d, got %d", QClassIN, record.Class)
+			if record.Class != test.expectedClass {
+				t.Errorf("Class: expected %d, got %d", test.expectedClass, record.Class)
 			}
 
 			if record.TTL != test.expectedTTL {

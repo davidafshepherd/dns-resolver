@@ -137,20 +137,20 @@ func ParseResourceRecord(data []byte, offset int) (ResourceRecord, int, error) {
 	// Parse RDATA.
 	record.RData = append([]byte{}, data[dataStart:dataEnd]...)
 
-	// If the resource record is an NS record, decompress the NS hostname.
-	if record.Type == QTypeNS {
-		// Decode the NS hostname.
+	// If the resource record is a CNAME or NS record, decompress the domain name.
+	if record.Type == QTypeCNAME || record.Type == QTypeNS {
+		// Decode the domain name.
 		name, endOffset, err := DecodeDomainName(data, dataStart)
 		if err != nil {
 			return ResourceRecord{}, 0, err
 		}
 
-		// Validate that the complete NS hostname is present in RDATA.
+		// Validate that the complete domain name is present in RDATA.
 		if endOffset != dataEnd {
-			return ResourceRecord{}, 0, fmt.Errorf("truncated NS hostname")
+			return ResourceRecord{}, 0, fmt.Errorf("truncated domain name")
 		}
 
-		// Encode the NS hostname.
+		// Re-encode the domain name.
 		record.RData, err = EncodeDomainName(name)
 		if err != nil {
 			return ResourceRecord{}, 0, err

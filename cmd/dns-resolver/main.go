@@ -14,7 +14,7 @@ func main() {
 		log.Fatal("expected one domain name: dns-resolver <domain>")
 	}
 
-	// Resolve the domain's IPv4 address.
+	// Resolve the domain name's IPv4 address.
 	domain := os.Args[1]
 	ip, err := dns.Resolve(domain)
 	if err != nil {
