@@ -19,13 +19,13 @@ func main() {
 	id := binary.BigEndian.Uint16(idBytes[:])
 
 	// Construct the DNS query.
-	message := dns.Message{
+	query := dns.Message{
 		Header:   dns.Header{ID: id, Flags: dns.RD, QDCount: 1},
 		Question: dns.Question{Name: "dns.google.com", Type: dns.QTypeA, Class: dns.QClassIN},
 	}
 
 	// Send the DNS query to Google's DNS server.
-	response, err := dns.Query("8.8.8.8:53", message)
+	response, err := dns.Query("8.8.8.8:53", query)
 	if err != nil {
 		log.Fatal(err)
 	}

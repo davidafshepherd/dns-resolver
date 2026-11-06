@@ -14,9 +14,14 @@ func ParseMessage(data []byte) (Message, error) {
 		return Message{}, err
 	}
 
+	// Validate that the DNS message is a response (QR=1).
+	if header.Flags&QR != 0x8000 {
+		return Message{}, fmt.Errorf("DNS message must be a response")
+	}
+
 	// Validate that the response contains exactly one question.
 	if header.QDCount != 1 {
-		return Message{}, fmt.Errorf("expected exactly one question, got %d", header.QDCount)
+		return Message{}, fmt.Errorf("response must contain exactly one question")
 	}
 
 	// Parse the question.
@@ -48,7 +53,7 @@ func ParseMessage(data []byte) (Message, error) {
 			// Parse the current resource record.
 			record, nextOffset, err := ParseResourceRecord(data, offset)
 			if err != nil {
-				return Message{}, fmt.Errorf("parse %s record %d: %w", section.name, i, err)
+				return Message{}, err
 			}
 
 			// Store the resource record in its corresponding section.
@@ -64,7 +69,7 @@ func ParseMessage(data []byte) (Message, error) {
 func ParseHeader(data []byte) (Header, error) {
 	// Validate that there are enough bytes for the header.
 	if len(data) < 12 {
-		return Header{}, fmt.Errorf("DNS header must be at least 12 bytes")
+		return Header{}, fmt.Errorf("header must be at least 12 bytes")
 	}
 
 	// Parse the header fields.
@@ -75,11 +80,6 @@ func ParseHeader(data []byte) (Header, error) {
 		ANCount: binary.BigEndian.Uint16(data[6:8]),
 		NSCount: binary.BigEndian.Uint16(data[8:10]),
 		ARCount: binary.BigEndian.Uint16(data[10:12]),
-	}
-
-	// Validate that the DNS message is a response (QR=1).
-	if header.Flags&QR == 0 {
-		return Header{}, fmt.Errorf("DNS message is not a response")
 	}
 
 	return header, nil
@@ -95,7 +95,7 @@ func ParseQuestion(data []byte, offset int) (Question, int, error) {
 
 	// Validate that there are enough bytes for QTYPE and QCLASS.
 	if len(data)-nextOffset < 4 {
-		return Question{}, 0, fmt.Errorf("truncated DNS question")
+		return Question{}, 0, fmt.Errorf("truncated question")
 	}
 
 	// Parse QNAME, QTYPE and QCLASS.
@@ -159,9 +159,9 @@ func DecodeDomainName(data []byte, offset int) (string, int, error) {
 			return "", 0, fmt.Errorf("domain name offset out of bounds")
 		}
 
-		// Validate that there is no compression loop.
+		// Validate that there is no compression pointer loop.
 		if visited[offset] {
-			return "", 0, fmt.Errorf("DNS compression loop detected")
+			return "", 0, fmt.Errorf("compression pointer loop detected")
 		}
 		visited[offset] = true
 
@@ -217,10 +217,10 @@ func DecodeDomainName(data []byte, offset int) (string, int, error) {
 			return "", 0, fmt.Errorf("truncated DNS label")
 		}
 
-		// Validate that the encoded domain name's length does not exceed 255 bytes.
+		// Validate the encoded domain name length.
 		nameLength += 1 + int(length)
 		if 255 < nameLength {
-			return "", 0, fmt.Errorf("DNS name exceeds 255 bytes")
+			return "", 0, fmt.Errorf("encoded domain name exceeds 255 bytes")
 		}
 
 		// Extract the label and append it to the decoded labels.

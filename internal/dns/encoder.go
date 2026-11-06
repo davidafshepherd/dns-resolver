@@ -8,6 +8,11 @@ import (
 
 // ToBytes serializes a DNS query into bytes.
 func (m Message) ToBytes() ([]byte, error) {
+	// Validate that the DNS message is a query (QR=0).
+	if m.Header.Flags&QR != 0 {
+		return nil, fmt.Errorf("DNS message must be a query")
+	}
+
 	// Validate that the query contains exactly one question.
 	if m.Header.QDCount != 1 {
 		return nil, fmt.Errorf("query must contain exactly one question")
@@ -87,13 +92,13 @@ func EncodeDomainName(domain string) ([]byte, error) {
 	for _, label := range labels {
 		// Validate the label length (1-63 bytes).
 		if len(label) == 0 || 63 < len(label) {
-			return nil, fmt.Errorf("invalid DNS label %q: length must be 1-63 bytes", label)
+			return nil, fmt.Errorf("DNS label %q length must be 1-63 bytes", label)
 		}
 
 		// Validate the label characters (ASCII only).
 		for i := 0; i < len(label); i++ {
 			if 127 < label[i] {
-				return nil, fmt.Errorf("invalid DNS label %q: contains non-ASCII character", label)
+				return nil, fmt.Errorf("DNS label %q contains non-ASCII character", label)
 			}
 		}
 

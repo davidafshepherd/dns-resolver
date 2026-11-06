@@ -1,16 +1,15 @@
 package dns
 
 import (
-	"encoding/binary"
 	"fmt"
 	"net"
 	"time"
 )
 
 // Query sends a DNS query to a DNS server over UDP and returns the DNS response.
-func Query(server string, message Message) (Message, error) {
-	// Encode the DNS message.
-	request, err := message.ToBytes()
+func Query(server string, query Message) (Message, error) {
+	// Encode the DNS query.
+	request, err := query.ToBytes()
 	if err != nil {
 		return Message{}, fmt.Errorf("encode DNS query: %w", err)
 	}
@@ -47,20 +46,16 @@ func Query(server string, message Message) (Message, error) {
 
 	// Extract the DNS response from the buffer.
 	responseBytes := buffer[:n]
-	if len(responseBytes) < 12 {
-		return Message{}, fmt.Errorf("DNS response too short: %d bytes", len(responseBytes))
-	}
-
-	// Validate that the response ID matches the query ID.
-	responseID := binary.BigEndian.Uint16(responseBytes[0:2])
-	if responseID != message.Header.ID {
-		return Message{}, fmt.Errorf("transaction ID mismatch: sent %d, received %d", message.Header.ID, responseID)
-	}
 
 	// Decode the DNS response.
 	response, err := ParseMessage(responseBytes)
 	if err != nil {
 		return Message{}, fmt.Errorf("decode DNS response: %w", err)
+	}
+
+	// Validate that the response ID matches the query ID.
+	if response.Header.ID != query.Header.ID {
+		return Message{}, fmt.Errorf("ID mismatch: sent %d, received %d", query.Header.ID, response.Header.ID)
 	}
 
 	return response, nil

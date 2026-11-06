@@ -23,6 +23,13 @@ func TestParseMessage(t *testing.T) {
 		"c00c0001000100000214000408080404"
 	multipleRecords, _ := hex.DecodeString(multipleRecordsHex)
 
+	// An invalid DNS response with the QR bit set to zero.
+	const queryHex = "001600800001000200000000" +
+		"03646e7306676f6f676c6503636f6d0000010001" +
+		"c00c0001000100000214000408080808" +
+		"c00c0001000100000214000408080404"
+	query, _ := hex.DecodeString(queryHex)
+
 	// An invalid DNS response with an unsupported question count.
 	const invalidCountHex = "001680800002000200000000" +
 		"03646e7306676f6f676c6503636f6d0000010001" +
@@ -53,6 +60,11 @@ func TestParseMessage(t *testing.T) {
 			expectedAuthorities: 1,
 			expectedAdditionals: 1,
 			expectedIPs:         []string{"8.8.8.8"},
+		},
+		{
+			name:    "query instead of response",
+			data:    query,
+			wantErr: true,
 		},
 		{
 			name:    "invalid question count",
@@ -166,11 +178,6 @@ func TestParseHeader(t *testing.T) {
 		{
 			name:    "truncated header",
 			data:    []byte{0x00, 0x16},
-			wantErr: true,
-		},
-		{
-			name:    "query instead of response",
-			data:    []byte{0x00, 0x16, 0x01, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
 			wantErr: true,
 		},
 	}

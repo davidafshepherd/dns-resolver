@@ -23,6 +23,14 @@ func TestMessageToBytes(t *testing.T) {
 			expected: "00160100000100000000000003646e7306676f6f676c6503636f6d0000010001",
 		},
 		{
+			name: "response instead of query",
+			message: Message{
+				Header:   Header{ID: 22, Flags: QR, QDCount: 1},
+				Question: Question{Name: "dns.google.com", Type: QTypeA, Class: QClassIN},
+			},
+			wantErr: true,
+		},
+		{
 			name: "invalid question count",
 			message: Message{
 				Header: Header{QDCount: 2},
