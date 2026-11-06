@@ -31,10 +31,7 @@ func ParseMessage(data []byte) (Message, error) {
 	}
 
 	// Construct the DNS response.
-	message := Message{
-		Header:   header,
-		Question: question,
-	}
+	message := Message{Header: header, Question: question}
 
 	// Define each resource record section, its count and its destination.
 	sections := []struct {
@@ -139,6 +136,29 @@ func ParseResourceRecord(data []byte, offset int) (ResourceRecord, int, error) {
 
 	// Parse RDATA.
 	record.RData = append([]byte{}, data[dataStart:dataEnd]...)
+
+	// If the resource record is an NS record, decompress the NS hostname.
+	if record.Type == QTypeNS {
+		// Decode the NS hostname.
+		name, endOffset, err := DecodeDomainName(data, dataStart)
+		if err != nil {
+			return ResourceRecord{}, 0, err
+		}
+
+		// Validate that the complete NS hostname is present in RDATA.
+		if endOffset != dataEnd {
+			return ResourceRecord{}, 0, fmt.Errorf("truncated NS hostname")
+		}
+
+		// Encode the NS hostname.
+		record.RData, err = EncodeDomainName(name)
+		if err != nil {
+			return ResourceRecord{}, 0, err
+		}
+
+		// Update RDATA length to match the uncompressed length.
+		record.RDLength = uint16(len(record.RData))
+	}
 
 	return record, dataEnd, nil
 }

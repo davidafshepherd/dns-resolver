@@ -2,10 +2,12 @@ package dns
 
 // Constants for DNS message fields.
 const (
-	QR       uint16 = 0x8000
-	RD       uint16 = 0x0100
-	QTypeA   uint16 = 1
-	QClassIN uint16 = 1
+	QR         uint16 = 0x8000
+	RD         uint16 = 0x0100
+	QTypeA     uint16 = 1
+	QTypeNS    uint16 = 2
+	QTypeCNAME uint16 = 5
+	QClassIN   uint16 = 1
 )
 
 // Message represents a DNS message.

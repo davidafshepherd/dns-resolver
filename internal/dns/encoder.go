@@ -19,9 +19,10 @@ func (m Message) ToBytes() ([]byte, error) {
 	}
 
 	// Validate that the query contains no resource records.
-	if m.Header.ANCount != 0 || len(m.Answers) != 0 ||
-		m.Header.NSCount != 0 || len(m.Authorities) != 0 ||
-		m.Header.ARCount != 0 || len(m.Additionals) != 0 {
+	hasAnswers := m.Header.ANCount != 0 || len(m.Answers) != 0
+	hasAuthorities := m.Header.NSCount != 0 || len(m.Authorities) != 0
+	hasAdditionals := m.Header.ARCount != 0 || len(m.Additionals) != 0
+	if hasAnswers || hasAuthorities || hasAdditionals {
 		return nil, fmt.Errorf("resource record sections must be empty")
 	}
 
