@@ -7,9 +7,7 @@
   - [decoder.go](internal/dns/decoder.go) parses DNS responses from wire format.
   - [client.go](internal/dns/client.go) sends DNS queries over UDP and validates DNS responses.
   - [resolver.go](internal/dns/resolver.go) follows NS referrals, uses IPv4 glue records and handles CNAME records.
-
----
-
+#
 To resolve a domain name, run:
 
 ```bash
