@@ -1,7 +1,7 @@
 # DNS Resolver
 
-- [cmd/dns-resolver](cmd/dns-resolver) contains the command-line application.
-- [internal/dns](internal/dns) contains the DNS implementation:
+- [cmd/dns-resolver](cmd/dns-resolver) contains the entry point of the application.
+- [internal/dns](internal/dns) contains the DNS resolver implementation:
   - [message.go](internal/dns/message.go) defines DNS messages, questions and resource records.
   - [encoder.go](internal/dns/encoder.go) encodes DNS queries into wire format.
   - [decoder.go](internal/dns/decoder.go) parses DNS responses from wire format.
