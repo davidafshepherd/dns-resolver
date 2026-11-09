@@ -21,3 +21,5 @@ To run the tests, run:
 ```bash
 go test ./...
 ```
+
+This project requires **Go 1.27.3 or later**.
