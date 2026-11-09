@@ -22,5 +22,5 @@ func main() {
 	}
 
 	// Print the IPv4 address.
-	fmt.Println("Resolved IP:", ip)
+	fmt.Println("\nResolved IP:", ip)
 }
